@@ -61,7 +61,8 @@
 #include "gapgattserver.h"
 #include "gattservapp.h"
 #include "devinfoservice.h"
-#include "simple_gatt_profile.h"
+//#include "simple_gatt_profile.h"
+#include "motor_monitor.h"
 
 #if defined(FEATURE_OAD) || defined(IMAGE_INVALIDATE)
 #include "oad_target.h"
@@ -265,8 +266,8 @@ static uint8_t advertData[] =
   HI_UINT16(OAD_SERVICE_UUID),
 #endif //FEATURE_OAD
 #ifndef FEATURE_OAD_ONCHIP
-  LO_UINT16(SIMPLEPROFILE_SERV_UUID),
-  HI_UINT16(SIMPLEPROFILE_SERV_UUID)
+  LO_UINT16(MONITOR_SERVICE_UUID),
+  HI_UINT16(MONITOR_SERVICE_UUID)
 #endif //FEATURE_OAD_ONCHIP
 };
 
@@ -280,7 +281,7 @@ static uint8_t rspTxRetry = 0;
 PIN_State  gpioPinsState;
 PIN_Handle hGpioPins;
 
-float dispItem[2] = {601.0, 10.5};
+float dispItem[4] = {601.0, 10.5};
 int 	menu_state=0; // 0: RPM, 1: Voltage
 uint8_t dispScreen[4] = {FND_CHAR_0, FND_CHAR_0, FND_CHAR_0, FND_CHAR_0};
 
@@ -304,7 +305,7 @@ static void SimpleBLEPeripheral_freeAttRsp(uint8_t status);
 
 static void SimpleBLEPeripheral_stateChangeCB(gaprole_States_t newState);
 #ifndef FEATURE_OAD_ONCHIP
-static void SimpleBLEPeripheral_charValueChangeCB(uint8_t paramID);
+static void SimpleBLE_updateProfileCB(uint8_t paramID);
 #endif //!FEATURE_OAD_ONCHIP
 static void SimpleBLEPeripheral_enqueueMsg(uint8_t event, uint8_t state);
 
@@ -333,9 +334,9 @@ static gapBondCBs_t simpleBLEPeripheral_BondMgrCBs =
 
 // Simple GATT Profile Callbacks
 #ifndef FEATURE_OAD_ONCHIP
-static simpleProfileCBs_t SimpleBLEPeripheral_simpleProfileCBs =
+static monitorCBs_t SimpleBLE_updateMonitorCBs =
 {
-  SimpleBLEPeripheral_charValueChangeCB // Characteristic value change callback
+  SimpleBLE_updateProfileCB // Characteristic value change callback
 };
 #endif //!FEATURE_OAD_ONCHIP
 
@@ -485,7 +486,7 @@ static void SimpleBLEPeripheral_init(void)
   DevInfo_AddService();                        // Device Information Service
 
 #ifndef FEATURE_OAD_ONCHIP
-  SimpleProfile_AddService(GATT_ALL_SERVICES); // Simple GATT Profile
+  monitor_AddService(GATT_ALL_SERVICES); // Simple GATT Profile
 #endif //!FEATURE_OAD_ONCHIP
 
 #ifdef FEATURE_OAD
@@ -502,26 +503,24 @@ static void SimpleBLEPeripheral_init(void)
 #ifndef FEATURE_OAD_ONCHIP
   // Setup the SimpleProfile Characteristic Values
   {
-    uint8_t charValue1 = 1;
-    uint8_t charValue2 = 2;
-    uint8_t charValue3 = 3;
-    uint8_t charValue4 = 4;
-    uint8_t charValue5[SIMPLEPROFILE_CHAR5_LEN] = { 1, 2, 3, 4, 5 };
+    float charValue1 = 60.4;
+    float charValue2 = 1200.5;
+    float charValue3 = 20.0;
+    uint32 charValue4 = 65000;
+    //uint8_t charValue5[SIMPLEPROFILE_CHAR5_LEN] = { 1, 2, 3, 4, 5 };
 
-    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR1, sizeof(uint8_t),
+    monitor_SetParameter(MONITOR_FREQ, sizeof(float),
                                &charValue1);
-    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR2, sizeof(uint8_t),
+    monitor_SetParameter(MONITOR_RPM, sizeof(float),
                                &charValue2);
-    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR3, sizeof(uint8_t),
+    monitor_SetParameter(MONITOR_VOLTAGE, sizeof(float),
                                &charValue3);
-    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4, sizeof(uint8_t),
+    monitor_SetParameter(MONITOR_RUN_TIME, sizeof(uint32),
                                &charValue4);
-    SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR5, SIMPLEPROFILE_CHAR5_LEN,
-                               charValue5);
   }
 
   // Register callback with SimpleGATTprofile
-  SimpleProfile_RegisterAppCBs(&SimpleBLEPeripheral_simpleProfileCBs);
+  monitor_RegisterAppCBs(&SimpleBLE_updateMonitorCBs);
 #endif //!FEATURE_OAD_ONCHIP
 
   // Start the Device
@@ -1042,7 +1041,7 @@ static void SimpleBLEPeripheral_processStateChangeEvt(gaprole_States_t newState)
 
 #ifndef FEATURE_OAD_ONCHIP
 /*********************************************************************
- * @fn      SimpleBLEPeripheral_charValueChangeCB
+ * @fn      SimpleBLE_updateProfileCB
  *
  * @brief   Callback from Simple Profile indicating a characteristic
  *          value change.
@@ -1051,7 +1050,7 @@ static void SimpleBLEPeripheral_processStateChangeEvt(gaprole_States_t newState)
  *
  * @return  None.
  */
-static void SimpleBLEPeripheral_charValueChangeCB(uint8_t paramID)
+static void SimpleBLE_updateProfileCB(uint8_t paramID)
 {
   SimpleBLEPeripheral_enqueueMsg(SBP_CHAR_CHANGE_EVT, paramID);
 }
@@ -1070,20 +1069,32 @@ static void SimpleBLEPeripheral_charValueChangeCB(uint8_t paramID)
 static void SimpleBLEPeripheral_processCharValueChangeEvt(uint8_t paramID)
 {
 #ifndef FEATURE_OAD_ONCHIP
-  uint8_t newValue;
+  float newValue;
 
   switch(paramID)
   {
-    case SIMPLEPROFILE_CHAR1:
-      SimpleProfile_GetParameter(SIMPLEPROFILE_CHAR1, &newValue);
+    case MONITOR_FREQ:
+    	monitor_GetParameter(MONITOR_FREQ, &newValue);
 
-      Display_print1(dispHandle, 4, 0, "Char 1: %d", (uint16_t)newValue);
+      Display_print1(dispHandle, 4, 0, "Freq: %d", (int)newValue);
       break;
 
-    case SIMPLEPROFILE_CHAR3:
-      SimpleProfile_GetParameter(SIMPLEPROFILE_CHAR3, &newValue);
+    case MONITOR_RPM:
+    	monitor_GetParameter(MONITOR_RPM, &newValue);
 
-      Display_print1(dispHandle, 4, 0, "Char 3: %d", (uint16_t)newValue);
+      Display_print1(dispHandle, 4, 0, "RPM: %d", (int)newValue);
+      break;
+
+    case MONITOR_VOLTAGE:
+    	monitor_GetParameter(MONITOR_VOLTAGE, &newValue);
+
+      Display_print1(dispHandle, 4, 0, "DC Voltage: %d", (int)newValue);
+      break;
+
+    case MONITOR_RUN_TIME:
+    	monitor_GetParameter(MONITOR_RUN_TIME, &newValue);
+
+      Display_print1(dispHandle, 4, 0, "Run time: %d", (int)newValue);
       break;
 
     default:
@@ -1117,19 +1128,19 @@ static void SimpleBLEPeripheral_performPeriodicTask(void)
   uint8_t valueToCopy;
   static uint32_t counter=0;
 
-  if(counter%5000 == 0) // every 5sec
-  {
-	  // Call to retrieve the value of the third characteristic in the profile
-	  if (SimpleProfile_GetParameter(SIMPLEPROFILE_CHAR3, &valueToCopy) == SUCCESS)
-	  {
-		// Call to set that value of the fourth characteristic in the profile.
-		// Note that if notifications of the fourth characteristic have been
-		// enabled by a GATT client device, then a notification will be sent
-		// every time this function is called.
-		SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4, sizeof(uint8_t),
-								   &valueToCopy);
-	  }
-  }
+//  if(counter%5000 == 0) // every 5sec
+//  {
+//	  // Call to retrieve the value of the third characteristic in the profile
+//	  if (SimpleProfile_GetParameter(SIMPLEPROFILE_CHAR3, &valueToCopy) == SUCCESS)
+//	  {
+//		// Call to set that value of the fourth characteristic in the profile.
+//		// Note that if notifications of the fourth characteristic have been
+//		// enabled by a GATT client device, then a notification will be sent
+//		// every time this function is called.
+//		SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR4, sizeof(uint8_t),
+//								   &valueToCopy);
+//	  }
+//  }
 #endif //!FEATURE_OAD_ONCHIP
 
   // read key every 20ms

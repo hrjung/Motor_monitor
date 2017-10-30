@@ -54,6 +54,7 @@
 #include "gatt_uuid.h"
 #include "gattservapp.h"
 
+#include "motor_monitor.h"
 #include <ti/mw/display/Display.h>
 
 extern Display_Handle dispHandle;
@@ -80,53 +81,33 @@ extern Display_Handle dispHandle;
  * GLOBAL VARIABLES
  */
 
-// Accelerometer Service UUID
+// Monitor Service UUID
 CONST uint8 MonitorServUUID[ATT_BT_UUID_SIZE] =
 { 
-  LO_UINT16(ACCEL_SERVICE_UUID), HI_UINT16(ACCEL_SERVICE_UUID)
+  LO_UINT16(MONITOR_SERVICE_UUID), HI_UINT16(MONITOR_SERVICE_UUID)
 };
 
-// Accelerometer init UUID : 0xFFA5
-CONST uint8 sensInitUUID[ATT_BT_UUID_SIZE] =
+// Monitor Freq UUID : 0xFFE2
+CONST uint8 mntrFreqUUID[ATT_BT_UUID_SIZE] =
 {
-  LO_UINT16(ACCEL_DATA_INIT_UUID), HI_UINT16(ACCEL_DATA_INIT_UUID)
-};
-#if ACCELSENSOR_MERGE_CALC_RESULT
-// Accelerometer Sensor Data UUID : 0xFFA5
-CONST uint8 sensorAveDivUUID[ATT_BT_UUID_SIZE] =
-{
-  LO_UINT16(ACCEL_SENSOR_AVE_DIV_UUID), HI_UINT16(ACCEL_SENSOR_AVE_DIV_UUID)
+  LO_UINT16(MONITOR_FREQ_UUID), HI_UINT16(MONITOR_FREQ_UUID)
 };
 
-CONST uint8 sensorMaxMinUUID[ATT_BT_UUID_SIZE] =
+// Monitor Speed UUID : 0xFFE3
+CONST uint8 mntrRpmUUID[ATT_BT_UUID_SIZE] =
 {
-  LO_UINT16(ACCEL_SENSOR_MAX_MIN_UUID), HI_UINT16(ACCEL_SENSOR_MAX_MIN_UUID)
-};
-#else
-// Accelerometer Average UUID : 0xFFA2
-CONST uint8 averageUUID[ATT_BT_UUID_SIZE] =
-{
-  LO_UINT16(ACCEL_AVERAGE_UUID), HI_UINT16(ACCEL_AVERAGE_UUID)
+  LO_UINT16(MONITOR_RPM_UUID), HI_UINT16(MONITOR_RPM_UUID)
 };
 
-// Accelerometer Deviation UUID : 0xFFA3
-CONST uint8 deviationUUID[ATT_BT_UUID_SIZE] =
+CONST uint8 mntrVoltageUUID[ATT_BT_UUID_SIZE] =
 {
-  LO_UINT16(ACCEL_DEVIATION_UUID), HI_UINT16(ACCEL_DEVIATION_UUID)
+  LO_UINT16(MONITOR_VOLTAGE_UUID), HI_UINT16(MONITOR_VOLTAGE_UUID)
 };
 
-// Accelerometer max UUID : 0xFFA4
-CONST uint8 maxUUID[ATT_BT_UUID_SIZE] =
+CONST uint8 mntrRunTimeUUID[ATT_BT_UUID_SIZE] =
 {
-  LO_UINT16(ACCEL_MAX_UUID), HI_UINT16(ACCEL_MAX_UUID)
+  LO_UINT16(MONITOR_RUN_TIME_UUID), HI_UINT16(MONITOR_RUN_TIME_UUID)
 };
-
-// Accelerometer min UUID : 0xFFA5
-CONST uint8 minUUID[ATT_BT_UUID_SIZE] =
-{
-  LO_UINT16(ACCEL_MIN_UUID), HI_UINT16(ACCEL_MIN_UUID)
-};
-#endif
 
 // Accelerometer noti UUID : 0xFFA5
 //CONST uint8 nofiCfgUUID[ATT_BT_UUID_SIZE] =
@@ -145,76 +126,52 @@ CONST uint8 minUUID[ATT_BT_UUID_SIZE] =
 /*********************************************************************
  * LOCAL VARIABLES
  */
-static accelCBs_t *accel_AppCBs = NULL;
+static monitorCBs_t *monitor_AppCBs = NULL;
 
 /*********************************************************************
  * Profile Attributes - variables
  */
 
 // Accelerometer Service attribute
-static CONST gattAttrType_t accelService = { ATT_BT_UUID_SIZE, accServUUID };
+static CONST gattAttrType_t MonitorService = { ATT_BT_UUID_SIZE, MonitorServUUID };
 
 // Characteristic Properties
-static uint8 accelSensInitCharProps = GATT_PROP_READ | GATT_PROP_WRITE;
-#if ACCELSENSOR_MERGE_CALC_RESULT
-static uint8 accelSensorAveDivCharProps = GATT_PROP_NOTIFY;
-static uint8 accelSensorMaxMinCharProps = GATT_PROP_NOTIFY;
-#else
-static uint8 accelAverageCharProps = GATT_PROP_NOTIFY;
-static uint8 accelDeviationCharProps = GATT_PROP_NOTIFY;
-static uint8 accelSensorMaxCharProps = GATT_PROP_NOTIFY;
-static uint8 accelSensorMinCharProps = GATT_PROP_NOTIFY;
-#endif
+static uint8 MntrFreqCharProps = GATT_PROP_READ;
+static uint8 MntrRpmCharProps = GATT_PROP_READ;
+static uint8 MntrVoltageCharProps = GATT_PROP_READ;
+static uint8 MntrRunTimeCharProps = GATT_PROP_READ;
 
-static uint8 accelSensInit = FALSE;
 //static uint8 accelNofiCfg = 0; //disable
 // Characteristics value, 3 valuse for x, y, z
-#if ACCELSENSOR_MERGE_CALC_RESULT
-static int16 accelSensorAveDiv[ACCEL_SENSOR_CALC_LEN] = {0,0,0, 0,0,0};
-static int16 accelSensorMaxMin[ACCEL_SENSOR_CALC_LEN] = {0,0,0, 0,0,0};
-#else
-static int16 accelAverage[ACCEL_SENSOR_DATA_LEN] = {0,0,0};
-static int16 accelDeviation[ACCEL_SENSOR_DATA_LEN] = {0,0,0};
-static int16 accelSensorMax[ACCEL_SENSOR_DATA_LEN] = {0,0,0};
-static int16 accelSensorMin[ACCEL_SENSOR_DATA_LEN] = {0,0,0};
-#endif
-
+static float MntrFreqValue = 0.0;
+static float MntrRpmValue = 0.0;
+static float MntrVoltageValue = 0.0;
+static uint32 MntrRunTimeValue = 0;
 
 // Characteristic Configs for notify
-#if ACCELSENSOR_MERGE_CALC_RESULT
-static gattCharCfg_t *accelAveDivConfig;
-static gattCharCfg_t *accelMaxMinConfig;
-#else
-static gattCharCfg_t *accelAverageConfig;
-static gattCharCfg_t *accelDeviationConfig;
-static gattCharCfg_t *accelSensorMaxConfig;
-static gattCharCfg_t *accelSensorMinConfig;
-#endif
+static gattCharCfg_t *MntrFreqConfig;
+static gattCharCfg_t *MntrRpmConfig;
+static gattCharCfg_t *MntrVoltageConfig;
+static gattCharCfg_t *MntrRunTimeConfig;
 //static gattCharCfg_t *accelSensorNofiConfig;
 
 // Characteristic user descriptions
-static uint8 accelSensInitUserDesc[20] 			= "Accel Data Init   ";
-#if ACCELSENSOR_MERGE_CALC_RESULT
-static uint8 accelSensorAveDivCharUserDesc[20] 	= "Accel Sensor AveDiv";
-static uint8 accelSensorMaxMinCharUserDesc[20] 	= "Accel Sensor MaxMin";
-#else
-static uint8 accelAverageCharUserDesc[20] 		= "Accel Average Data ";
-static uint8 accelDeviationCharUserDesc[22] 	= "Accel Deviation Data  ";
-static uint8 accelSensorDataMaxUserDesc[20] 	= "Accel Sensor MAX  ";
-static uint8 accelSensorDataMinUserDesc[20] 	= "Accel Sensor MIN  ";
-#endif
+static uint8 MntrFreqUserDesc[20] 			= "Motor Frequency    ";
+static uint8 MntrSpeedRpmCharUserDesc[20] 	= "Motor Speed        ";
+static uint8 MntrDcVoltageCharUserDesc[20] 	= "Motor DC voltage   ";
+static uint8 MntrRunTimeCharUserDesc[20] 	= "Motor Run Time     ";
 
 /*********************************************************************
  * Profile Attributes - Table
  */
-static gattAttribute_t accelAttrTbl[SERVAPP_NUM_ATTR_SUPPORTED] = 
+static gattAttribute_t mntrAttrTbl[SERVAPP_NUM_ATTR_SUPPORTED] =
 {
   // Accelerometer Service
   { 
     { ATT_BT_UUID_SIZE, primaryServiceUUID }, /* type */
     GATT_PERMIT_READ,                         /* permissions */
     0,                                        /* handle */
-    (uint8 *)&accelService                  /* pValue */
+    (uint8 *)&MonitorService                  /* pValue */
   },
 
   	 //===============================================
@@ -223,41 +180,48 @@ static gattAttribute_t accelAttrTbl[SERVAPP_NUM_ATTR_SUPPORTED] =
 		  { ATT_BT_UUID_SIZE, characterUUID }, //type 0x2803
 		  GATT_PERMIT_READ,						// permissions
 		  0,									// handle
-		  &accelSensInitCharProps				// pValue
+		  &MntrFreqCharProps				// pValue
 	},
 
 	  // Sensor Min Characteristic Value
 	  {
-		{ ATT_BT_UUID_SIZE, sensInitUUID },
-		GATT_PERMIT_READ | GATT_PERMIT_WRITE,
+		{ ATT_BT_UUID_SIZE, mntrFreqUUID },
+		GATT_PERMIT_READ,
 		0,
-		&accelSensInit
+		(uint8 *)&MntrFreqValue
 	  },
+
+      // sensor calc configuration
+      {
+        { ATT_BT_UUID_SIZE, clientCharCfgUUID },
+        GATT_PERMIT_READ | GATT_PERMIT_WRITE,
+        0,
+        (uint8 *)&MntrFreqConfig
+      },
 
 	  // Sensor Min Characteristic User Description
 	  {
 		{ ATT_BT_UUID_SIZE, charUserDescUUID },
 		GATT_PERMIT_READ,
 		0,
-		accelSensInitUserDesc
+		MntrFreqUserDesc
 	  },
 
-#if ACCELSENSOR_MERGE_CALC_RESULT //hrjung merge notify data to one parameter
 	  //===============================================
 		// Accelero sensor calc Characteristic Declaration
 		{
 		  { ATT_BT_UUID_SIZE, characterUUID }, //type 0x2803
 		  GATT_PERMIT_READ,						// permissions
 		  0,									// handle
-		  &accelSensorAveDivCharProps				// pValue
+		  &MntrRpmCharProps				// pValue
 		},
 
 		  // sensor calc Characteristic Value
 		  {
-			{ ATT_BT_UUID_SIZE, sensorAveDivUUID },
+			{ ATT_BT_UUID_SIZE, mntrRpmUUID },
 			GATT_PERMIT_READ,
 			0,
-			(uint8 *)accelSensorAveDiv
+			(uint8 *)&MntrRpmValue
 		  },
 
 	      // sensor calc configuration
@@ -265,7 +229,7 @@ static gattAttribute_t accelAttrTbl[SERVAPP_NUM_ATTR_SUPPORTED] =
 	        { ATT_BT_UUID_SIZE, clientCharCfgUUID },
 	        GATT_PERMIT_READ | GATT_PERMIT_WRITE,
 	        0,
-	        (uint8 *)&accelAveDivConfig
+	        (uint8 *)&MntrRpmConfig
 	      },
 
 		  // sensor calc Characteristic User Description
@@ -273,7 +237,7 @@ static gattAttribute_t accelAttrTbl[SERVAPP_NUM_ATTR_SUPPORTED] =
 			{ ATT_BT_UUID_SIZE, charUserDescUUID },
 			GATT_PERMIT_READ,
 			0,
-			accelSensorAveDivCharUserDesc
+			MntrSpeedRpmCharUserDesc
 		  },
 		  //===============================================
 			// Accelero sensor calc Characteristic Declaration
@@ -281,15 +245,15 @@ static gattAttribute_t accelAttrTbl[SERVAPP_NUM_ATTR_SUPPORTED] =
 			  { ATT_BT_UUID_SIZE, characterUUID }, //type 0x2803
 			  GATT_PERMIT_READ,						// permissions
 			  0,									// handle
-			  &accelSensorMaxMinCharProps			// pValue
+			  &MntrVoltageCharProps			// pValue
 			},
 
 			  // sensor calc Characteristic Value
 			  {
-				{ ATT_BT_UUID_SIZE, sensorMaxMinUUID },
+				{ ATT_BT_UUID_SIZE, mntrVoltageUUID },
 				GATT_PERMIT_READ,
 				0,
-				(uint8 *)accelSensorMaxMin
+				(uint8 *)&MntrVoltageValue
 			  },
 
 		      // sensor calc configuration
@@ -297,7 +261,7 @@ static gattAttribute_t accelAttrTbl[SERVAPP_NUM_ATTR_SUPPORTED] =
 		        { ATT_BT_UUID_SIZE, clientCharCfgUUID },
 		        GATT_PERMIT_READ | GATT_PERMIT_WRITE,
 		        0,
-		        (uint8 *)&accelMaxMinConfig
+		        (uint8 *)&MntrVoltageConfig
 		      },
 
 			  // sensor calc Characteristic User Description
@@ -305,140 +269,40 @@ static gattAttribute_t accelAttrTbl[SERVAPP_NUM_ATTR_SUPPORTED] =
 				{ ATT_BT_UUID_SIZE, charUserDescUUID },
 				GATT_PERMIT_READ,
 				0,
-				accelSensorMaxMinCharUserDesc
+				MntrDcVoltageCharUserDesc
 			  },
-#else
-	//===============================================
-	// Accelero average data Characteristic Declaration
-	{
-	  { ATT_BT_UUID_SIZE, characterUUID }, //type 0x2803
-	  GATT_PERMIT_READ,						// permissions
-	  0,									// handle
-	  &accelAverageCharProps				// pValue
-	},
+		  //===============================================
+			// Monitor Run time Characteristic Declaration
+			{
+			  { ATT_BT_UUID_SIZE, characterUUID }, //type 0x2803
+			  GATT_PERMIT_READ,						// permissions
+			  0,									// handle
+			  &MntrRunTimeCharProps			// pValue
+			},
 
-	  // average data Characteristic Value
-	  {
-		{ ATT_BT_UUID_SIZE, averageUUID },
-		GATT_PERMIT_READ,
-		0,
-		(uint8 *)accelAverage
-	  },
+		  // Run time Characteristic Value
+		  {
+			{ ATT_BT_UUID_SIZE, mntrRunTimeUUID },
+			GATT_PERMIT_READ,
+			0,
+			(uint8 *)&MntrRunTimeValue
+		  },
 
-      // average data configuration
-      {
-        { ATT_BT_UUID_SIZE, clientCharCfgUUID },
-        GATT_PERMIT_READ | GATT_PERMIT_WRITE,
-        0,
-        (uint8 *)&accelAverageConfig
-      },
+		  // Run time configuration
+		  {
+			{ ATT_BT_UUID_SIZE, clientCharCfgUUID },
+			GATT_PERMIT_READ | GATT_PERMIT_WRITE,
+			0,
+			(uint8 *)&MntrRunTimeConfig
+		  },
 
-	  // average data Characteristic User Description
-	  {
-		{ ATT_BT_UUID_SIZE, charUserDescUUID },
-		GATT_PERMIT_READ,
-		0,
-		accelAverageCharUserDesc
-	  },
-
-	//===============================================
-	// Accelero deviation data Characteristic Declaration
-	{
-	  { ATT_BT_UUID_SIZE, characterUUID }, //type 0x2803
-	  GATT_PERMIT_READ,						// permissions
-	  0,									// handle
-	  &accelDeviationCharProps				// pValue
-	},
-	  // deviation data Characteristic Value
-	  {
-		{ ATT_BT_UUID_SIZE, deviationUUID },
-		GATT_PERMIT_READ,
-		0,
-		(uint8 *)accelDeviation
-	  },
-
-      // deviation data configuration
-      {
-        { ATT_BT_UUID_SIZE, clientCharCfgUUID },
-        GATT_PERMIT_READ | GATT_PERMIT_WRITE,
-        0,
-        (uint8 *)&accelDeviationConfig
-      },
-
-	  // deviation data Characteristic User Description
-	  {
-		{ ATT_BT_UUID_SIZE, charUserDescUUID },
-		GATT_PERMIT_READ,
-		0,
-		accelDeviationCharUserDesc
-	  },
-
-	  //===============================================
-	  // Sensor Max Characteristic Value
-		// Sensor Max data Characteristic Declaration
-	  {
-		  { ATT_BT_UUID_SIZE, characterUUID }, //type 0x2803
-		  GATT_PERMIT_READ,						// permissions
-		  0,									// handle
-		  &accelSensorMaxCharProps				// pValue
-	  },
-
-	  {
-		{ ATT_BT_UUID_SIZE, maxUUID },
-		GATT_PERMIT_READ,
-		0,
-		(uint8 *)accelSensorMax
-	  },
-
-      // Sensor Max data configuration
-      {
-        { ATT_BT_UUID_SIZE, clientCharCfgUUID },
-        GATT_PERMIT_READ | GATT_PERMIT_WRITE,
-        0,
-        (uint8 *)&accelSensorMaxConfig
-      },
-
-	  // Sensor max Characteristic User Description
-	  {
-		{ ATT_BT_UUID_SIZE, charUserDescUUID },
-		GATT_PERMIT_READ,
-		0,
-		accelSensorDataMaxUserDesc
-	  },
-
-	  //===============================================
-	// Sensor Min data Characteristic Declaration
-	{
-		  { ATT_BT_UUID_SIZE, characterUUID }, //type 0x2803
-		  GATT_PERMIT_READ,						// permissions
-		  0,									// handle
-		  &accelSensorMinCharProps				// pValue
-	},
-
-	  // Sensor Min Characteristic Value
-	  {
-		{ ATT_BT_UUID_SIZE, minUUID },
-		GATT_PERMIT_READ,
-		0,
-		(uint8 *)accelSensorMin
-	  },
-
-      // Sensor Min data configuration
-      {
-        { ATT_BT_UUID_SIZE, clientCharCfgUUID },
-        GATT_PERMIT_READ | GATT_PERMIT_WRITE,
-        0,
-        (uint8 *)&accelSensorMinConfig
-      },
-
-	  // Sensor Min Characteristic User Description
-	  {
-		{ ATT_BT_UUID_SIZE, charUserDescUUID },
-		GATT_PERMIT_READ,
-		0,
-		accelSensorDataMinUserDesc
-	  },
-#endif
+		  // Run time Characteristic User Description
+		  {
+			{ ATT_BT_UUID_SIZE, charUserDescUUID },
+			GATT_PERMIT_READ,
+			0,
+			MntrRunTimeCharUserDesc
+		  },
 
 //	    // Accel Notify config Characteristic Declaration
 //	    {
@@ -469,12 +333,12 @@ static gattAttribute_t accelAttrTbl[SERVAPP_NUM_ATTR_SUPPORTED] =
 /*********************************************************************
  * LOCAL FUNCTIONS
  */
-static bStatus_t accel_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pAttr, 
+static bStatus_t monitor_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pAttr,
                                   uint8_t *pValue, uint16_t *pLen,
                                   uint16_t offset, uint16_t maxLen,
                                   uint8_t method);
 
-static bStatus_t accel_WriteAttrCB(uint16_t connHandle, gattAttribute_t *pAttr,
+static bStatus_t monitor_WriteAttrCB(uint16_t connHandle, gattAttribute_t *pAttr,
                                    uint8_t *pValue, uint16_t len,
                                    uint16_t offset, uint8_t method);
 
@@ -489,10 +353,10 @@ static bStatus_t accel_WriteAttrCB(uint16_t connHandle, gattAttribute_t *pAttr,
 // pfnAuthorizeAttrCB to check a client's authorization prior to calling
 // pfnReadAttrCB or pfnWriteAttrCB, so no checks for authorization need to be 
 // made within these functions.
-CONST gattServiceCBs_t  accelCBs =
+CONST gattServiceCBs_t  monitorCBs =
 {
-  accel_ReadAttrCB,  // Read callback function pointer
-  accel_WriteAttrCB, // Write callback function pointer
+  monitor_ReadAttrCB,  // Read callback function pointer
+  monitor_WriteAttrCB, // Write callback function pointer
   NULL               // Authorization callback function pointer
 };
 
@@ -512,81 +376,55 @@ CONST gattServiceCBs_t  accelCBs =
  *
  * @return  Success or Failure
  */
-bStatus_t Accel_AddService(uint32 services)
+bStatus_t monitor_AddService(uint32 services)
 {
   uint8 status = SUCCESS;
   size_t allocSize = sizeof(gattCharCfg_t) * linkDBNumConns;
 
   // Allocate Client Characteristic Configuration tables
-#if ACCELSENSOR_MERGE_CALC_RESULT
-  accelAveDivConfig = (gattCharCfg_t *)ICall_malloc(allocSize);
-  if (accelAveDivConfig == NULL)
+  MntrFreqConfig = (gattCharCfg_t *)ICall_malloc(allocSize);
+  if (MntrFreqConfig == NULL)
   {
     return (bleMemAllocError);
   }
 
-  accelMaxMinConfig = (gattCharCfg_t *)ICall_malloc(allocSize);
-  if (accelMaxMinConfig == NULL)
+  MntrRpmConfig = (gattCharCfg_t *)ICall_malloc(allocSize);
+  if (MntrRpmConfig == NULL)
   {
-	ICall_free(accelAveDivConfig);
-    return (bleMemAllocError);
-  }
-#else
-  accelAverageConfig = (gattCharCfg_t *)ICall_malloc(allocSize);
-  if (accelAverageConfig == NULL)
-  {
-    return (bleMemAllocError);
-  }
-    
-  accelDeviationConfig = (gattCharCfg_t *)ICall_malloc(allocSize);
-  if (accelDeviationConfig == NULL)
-  {
-    // Free already allocated data
-    ICall_free(accelAverageConfig);
-      
-    return (bleMemAllocError);
-  }
-  
-  accelSensorMaxConfig = (gattCharCfg_t *)ICall_malloc(allocSize);
-  if (accelSensorMaxConfig == NULL)
-  {
-    // Free already allocated data
-    ICall_free(accelAverageConfig);
-    ICall_free(accelDeviationConfig);
-
+	ICall_free(MntrFreqConfig);
     return (bleMemAllocError);
   }
 
-  accelSensorMinConfig = (gattCharCfg_t *)ICall_malloc(allocSize);
-  if (accelSensorMinConfig == NULL)
+  MntrVoltageConfig = (gattCharCfg_t *)ICall_malloc(allocSize);
+  if (MntrVoltageConfig == NULL)
   {
-    // Free already allocated data
-    ICall_free(accelAverageConfig);
-    ICall_free(accelDeviationConfig);
-    ICall_free(accelSensorMaxConfig);
-
+	ICall_free(MntrFreqConfig);
+	ICall_free(MntrRpmConfig);
     return (bleMemAllocError);
   }
-#endif
+
+  MntrRunTimeConfig = (gattCharCfg_t *)ICall_malloc(allocSize);
+  if (MntrRunTimeConfig == NULL)
+  {
+	ICall_free(MntrFreqConfig);
+	ICall_free(MntrRpmConfig);
+	ICall_free(MntrVoltageConfig);
+    return (bleMemAllocError);
+  }
 
   // Initialize Client Characteristic Configuration attributes
-#if ACCELSENSOR_MERGE_CALC_RESULT
-  GATTServApp_InitCharCfg(INVALID_CONNHANDLE, accelAveDivConfig);
-  GATTServApp_InitCharCfg(INVALID_CONNHANDLE, accelMaxMinConfig);
-#else
-  GATTServApp_InitCharCfg(INVALID_CONNHANDLE, accelAverageConfig);
-  GATTServApp_InitCharCfg(INVALID_CONNHANDLE, accelDeviationConfig);
-  GATTServApp_InitCharCfg(INVALID_CONNHANDLE, accelSensorMaxConfig);
-  GATTServApp_InitCharCfg(INVALID_CONNHANDLE, accelSensorMinConfig);
-#endif
+  GATTServApp_InitCharCfg(INVALID_CONNHANDLE, MntrFreqConfig);
+  GATTServApp_InitCharCfg(INVALID_CONNHANDLE, MntrRpmConfig);
+  GATTServApp_InitCharCfg(INVALID_CONNHANDLE, MntrVoltageConfig);
+  GATTServApp_InitCharCfg(INVALID_CONNHANDLE, MntrRunTimeConfig);
 
-  if (services & ACCEL_SERVICE)
+  if (services & MONITOR_SERVICE)
   {
     // Register GATT attribute list and CBs with GATT Server App
-    status = GATTServApp_RegisterService(accelAttrTbl, 
-                                         GATT_NUM_ATTRS(accelAttrTbl),
+    status = GATTServApp_RegisterService(mntrAttrTbl,
+                                         GATT_NUM_ATTRS(mntrAttrTbl),
                                          GATT_MAX_ENCRYPT_KEY_SIZE,
-                                         &accelCBs);
+                                         &monitorCBs);
   }
 
   return (status);
@@ -602,11 +440,11 @@ bStatus_t Accel_AddService(uint32 services)
  *
  * @return  SUCCESS or bleAlreadyInRequestedMode
  */
-bStatus_t Accel_RegisterAppCBs(accelCBs_t *appCallbacks)
+bStatus_t monitor_RegisterAppCBs(monitorCBs_t *appCallbacks)
 {
   if (appCallbacks)
   {
-    accel_AppCBs = appCallbacks;
+    monitor_AppCBs = appCallbacks;
     
     return (SUCCESS);
   }
@@ -630,101 +468,68 @@ bStatus_t Accel_RegisterAppCBs(accelCBs_t *appCallbacks)
  *
  * @return  bStatus_t
  */
-bStatus_t Accel_SetParameter(uint16 param, uint8 len, void *value)
+bStatus_t monitor_SetParameter(uint16 param, uint8 len, void *value)
 {
   bStatus_t ret = SUCCESS;
 
   switch (param)
   {
-    case ACCEL_DATA_INIT:
-      if (len == sizeof(uint8))
-    	  accelSensInit = *((uint8*)value);
-      else
-    	  ret = bleInvalidRange;
-
-      break;
-#if ACCELSENSOR_MERGE_CALC_RESULT
-    case ACCEL_AVE_DIV:
-      if (len == ACCEL_SENSOR_CALC_LEN*sizeof(int16))
+    case MONITOR_FREQ:
+      if (len == sizeof(float))
       {
-    	  memcpy(accelSensorAveDiv, value, len);
+    	  memcpy(&MntrFreqValue, value, len);
           // See if Notification has been enabled
-          GATTServApp_ProcessCharCfg( accelAveDivConfig, (uint8 *)accelSensorAveDiv, FALSE,
-        		  	  	  	  	  	  accelAttrTbl, GATT_NUM_ATTRS( accelAttrTbl ),
-                                      INVALID_TASK_ID, accel_ReadAttrCB );
+          GATTServApp_ProcessCharCfg( MntrFreqConfig, (uint8 *)&MntrFreqValue, FALSE,
+	  	  	  	  	 	 	 	 	  mntrAttrTbl, GATT_NUM_ATTRS( mntrAttrTbl ),
+                                      INVALID_TASK_ID, monitor_ReadAttrCB );
       }
       else
         ret = bleInvalidRange;
 
       break;
 
-    case ACCEL_MAX_MIN:
-      if (len == ACCEL_SENSOR_CALC_LEN*sizeof(int16))
+    case MONITOR_RPM:
+      if (len == sizeof(float))
       {
-    	  memcpy(accelSensorMaxMin, value, len);
+    	  memcpy(&MntrRpmValue, value, len);
           // See if Notification has been enabled
-          GATTServApp_ProcessCharCfg( accelMaxMinConfig, (uint8 *)accelSensorMaxMin, FALSE,
-        		  	  	  	  	  	  accelAttrTbl, GATT_NUM_ATTRS( accelAttrTbl ),
-                                      INVALID_TASK_ID, accel_ReadAttrCB );
+          GATTServApp_ProcessCharCfg( MntrRpmConfig, (uint8 *)&MntrRpmValue, FALSE,
+	  	  	  	  	  	  	  	  	  mntrAttrTbl, GATT_NUM_ATTRS( mntrAttrTbl ),
+                                      INVALID_TASK_ID, monitor_ReadAttrCB );
       }
       else
         ret = bleInvalidRange;
 
       break;
-#else
-    case ACCEL_AVERAGE:
-      if (len == ACCEL_SENSOR_DATA_LEN*sizeof(int16))
+
+    case MONITOR_VOLTAGE:
+      if (len == sizeof(float))
       {
-    	  memcpy(accelAverage, value, sizeof(int16)*ACCEL_SENSOR_DATA_LEN);
+    	  memcpy(&MntrVoltageValue, value, len);
           // See if Notification has been enabled
-          GATTServApp_ProcessCharCfg( accelAverageConfig, (uint8 *)accelAverage, FALSE,
-        		  	  	  	  	  	  accelAttrTbl, GATT_NUM_ATTRS( accelAttrTbl ),
-                                      INVALID_TASK_ID, accel_ReadAttrCB );
+          GATTServApp_ProcessCharCfg( MntrVoltageConfig, (uint8 *)&MntrVoltageValue, FALSE,
+	  	  	  	  	  	  	  	  	  mntrAttrTbl, GATT_NUM_ATTRS( mntrAttrTbl ),
+                                      INVALID_TASK_ID, monitor_ReadAttrCB );
       }
       else
         ret = bleInvalidRange;
 
       break;
 
-    case ACCEL_DEVIATION:
-      if (len == ACCEL_SENSOR_DATA_LEN*sizeof(int16))
+    case MONITOR_RUN_TIME:
+      if (len == sizeof(uint32))
       {
-    	  memcpy(accelDeviation, value, sizeof(int16)*ACCEL_SENSOR_DATA_LEN);
-          GATTServApp_ProcessCharCfg( accelDeviationConfig, (uint8 *)accelDeviation, FALSE,
-        		  	  	  	  	  	  accelAttrTbl, GATT_NUM_ATTRS( accelAttrTbl ),
-                                      INVALID_TASK_ID, accel_ReadAttrCB );
+    	  memcpy(&MntrRunTimeValue, value, len);
+          // See if Notification has been enabled
+          GATTServApp_ProcessCharCfg( MntrRunTimeConfig, (uint8 *)&MntrRunTimeValue, FALSE,
+        		  	  	  	  	  	  mntrAttrTbl, GATT_NUM_ATTRS( mntrAttrTbl ),
+                                      INVALID_TASK_ID, monitor_ReadAttrCB );
       }
       else
         ret = bleInvalidRange;
 
       break;
 
-    case ACCEL_MAX:
-      if (len == ACCEL_SENSOR_DATA_LEN*sizeof(int16))
-      {
-    	  memcpy(accelSensorMax, value, sizeof(int16)*ACCEL_SENSOR_DATA_LEN);
-          GATTServApp_ProcessCharCfg( accelSensorMaxConfig, (uint8 *)accelSensorMax, FALSE,
-        		  	  	  	  	  	  accelAttrTbl, GATT_NUM_ATTRS( accelAttrTbl ),
-                                      INVALID_TASK_ID, accel_ReadAttrCB );
-      }
-      else
-        ret = bleInvalidRange;
-
-      break;
-
-    case ACCEL_MIN:
-      if (len == ACCEL_SENSOR_DATA_LEN*sizeof(int16))
-      {
-    	  memcpy(accelSensorMin, value, sizeof(int16)*ACCEL_SENSOR_DATA_LEN);
-          GATTServApp_ProcessCharCfg( accelSensorMinConfig, (uint8 *)accelSensorMin, FALSE,
-        		  	  	  	  	  	  accelAttrTbl, GATT_NUM_ATTRS( accelAttrTbl ),
-                                      INVALID_TASK_ID, accel_ReadAttrCB );
-      }
-      else
-        ret = bleInvalidRange;
-
-      break;
-#endif
     default:
       ret = INVALIDPARAMETER;
       break;
@@ -746,43 +551,32 @@ bStatus_t Accel_SetParameter(uint16 param, uint8 len, void *value)
  *
  * @return  bStatus_t
  */
-bStatus_t Accel_GetParameter(uint16 param, void *value)
+bStatus_t monitor_GetParameter(uint16 param, void *value)
 {
   bStatus_t ret = SUCCESS;
   switch (param)
   {
-	case ACCEL_DATA_INIT:
-		*((uint8*)value) = accelSensInit;
-		break;
 
-//	case ACCEL_NOTIFY_CFG:
+ //	case ACCEL_NOTIFY_CFG:
 //		*((uint8*)value) = accelNofiCfg;
 //		break;
-#if ACCELSENSOR_MERGE_CALC_RESULT
-    case ACCEL_AVE_DIV:
-      memcpy(value, accelSensorAveDiv, sizeof(int16)*ACCEL_SENSOR_CALC_LEN);
+
+    case MONITOR_FREQ:
+      memcpy(value, &MntrFreqValue, sizeof(float));
       break;
 
-    case ACCEL_MAX_MIN:
-      memcpy(value, accelSensorMaxMin, sizeof(int16)*ACCEL_SENSOR_CALC_LEN);
-      break;
-#else
-    case ACCEL_AVERAGE:
-      memcpy(value, accelAverage, sizeof(int16)*ACCEL_SENSOR_DATA_LEN);
+    case MONITOR_RPM:
+      memcpy(value, &MntrRpmValue, sizeof(float));
       break;
 
-    case ACCEL_DEVIATION:
-      memcpy(value, accelDeviation, sizeof(int16)*ACCEL_SENSOR_DATA_LEN);
+    case MONITOR_VOLTAGE:
+      memcpy(value, &MntrVoltageValue, sizeof(float));
       break;
 
-    case ACCEL_MAX:
-      memcpy(value, accelSensorMax, sizeof(int16)*ACCEL_SENSOR_DATA_LEN);
+    case MONITOR_RUN_TIME:
+      memcpy(value, &MntrRunTimeValue, sizeof(uint32));
       break;
 
-    case ACCEL_MIN:
-      memcpy(value, accelSensorMin, sizeof(int16)*ACCEL_SENSOR_DATA_LEN);
-      break;
-#endif
     default:
       ret = INVALIDPARAMETER;
       break;
@@ -806,7 +600,7 @@ bStatus_t Accel_GetParameter(uint16 param, void *value)
  *
  * @return      SUCCESS, blePending or Failure
  */
-static bStatus_t accel_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pAttr, 
+static bStatus_t monitor_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pAttr,
                                   uint8_t *pValue, uint16_t *pLen,
                                   uint16_t offset, uint16_t maxLen,
                                   uint8_t method)
@@ -820,7 +614,7 @@ static bStatus_t accel_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pAttr,
     return (ATT_ERR_ATTR_NOT_LONG);
   }
 
-  Display_print0(dispHandle, 2, 0, "accel_ReadAttrCB");
+  Display_print0(dispHandle, 2, 0, "monitor_ReadAttrCB");
   if (pAttr->type.len == ATT_BT_UUID_SIZE)
   {    
     // 16-bit UUID
@@ -829,31 +623,31 @@ static bStatus_t accel_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pAttr,
     {
       // No need for "GATT_SERVICE_UUID" or "GATT_CLIENT_CHAR_CFG_UUID" cases;
       // gattserverapp handles those types for reads
-      case ACCEL_DATA_INIT_UUID:
-        *pLen = 1;
-        pValue[0] = *pAttr->pValue;
-        break;
-#if ACCELSENSOR_MERGE_CALC_RESULT
-      case ACCEL_SENSOR_AVE_DIV_UUID:
-        *pLen = sizeof(int16)*ACCEL_SENSOR_CALC_LEN;
+
+      case MONITOR_FREQ_UUID:
+        *pLen = sizeof(float);
         memcpy(pValue, pAttr->pValue, *pLen);
         //Display_print4(dispHandle, 2, 0, "accel_ReadAttrCB len=%d val=%d %d %d", *pLen, pValue[0],pValue[1],pValue[2]);
         break;
 
-      case ACCEL_SENSOR_MAX_MIN_UUID:
-        *pLen = sizeof(int16)*ACCEL_SENSOR_CALC_LEN;
+      case MONITOR_RPM_UUID:
+        *pLen = sizeof(float);
         memcpy(pValue, pAttr->pValue, *pLen);
         //Display_print4(dispHandle, 2, 0, "accel_ReadAttrCB len=%d val=%d %d %d", *pLen, pValue[0],pValue[1],pValue[2]);
         break;
-#else
-      case ACCEL_AVERAGE_UUID:
-      case ACCEL_DEVIATION_UUID:
-      case ACCEL_MAX_UUID:
-      case ACCEL_MIN_UUID:
-        *pLen = sizeof(int16)*ACCEL_SENSOR_DATA_LEN;
+
+      case MONITOR_VOLTAGE_UUID:
+        *pLen = sizeof(float);
         memcpy(pValue, pAttr->pValue, *pLen);
+        //Display_print4(dispHandle, 2, 0, "accel_ReadAttrCB len=%d val=%d %d %d", *pLen, pValue[0],pValue[1],pValue[2]);
         break;
-#endif
+
+      case MONITOR_RUN_TIME_UUID:
+        *pLen = sizeof(uint32);
+        memcpy(pValue, pAttr->pValue, *pLen);
+        //Display_print4(dispHandle, 2, 0, "accel_ReadAttrCB len=%d val=%d %d %d", *pLen, pValue[0],pValue[1],pValue[2]);
+        break;
+
       default:
         // Should never get here!
         *pLen = 0;
@@ -885,14 +679,14 @@ static bStatus_t accel_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pAttr,
  *
  * @return  SUCCESS, blePending or Failure
  */
-static bStatus_t accel_WriteAttrCB(uint16_t connHandle, gattAttribute_t *pAttr,
+static bStatus_t monitor_WriteAttrCB(uint16_t connHandle, gattAttribute_t *pAttr,
                                    uint8_t *pValue, uint16_t len,
                                    uint16_t offset, uint8_t method)
 {
 	bStatus_t status = SUCCESS;
     uint16 uuid = BUILD_UINT16(pAttr->type.uuid[0], pAttr->type.uuid[1]);
 
-    Display_print3(dispHandle, 2, 0, "accel_WriteAttrCB len=%d %d uuid=0x%x", pAttr->type.len, len, uuid);
+    Display_print3(dispHandle, 2, 0, "monitor_WriteAttrCB len=%d %d uuid=0x%x", pAttr->type.len, len, uuid);
     if (offset > 0)
     {
       return (ATT_ERR_ATTR_NOT_LONG);
@@ -903,52 +697,6 @@ static bStatus_t accel_WriteAttrCB(uint16_t connHandle, gattAttribute_t *pAttr,
 
 		switch (uuid)
 		{
-	      case ACCEL_DATA_INIT_UUID:
-			// Validate the value.
-			// Make sure it's not a blob operation.
-			if (len > 1)
-			{
-				status = ATT_ERR_INVALID_VALUE_SIZE;
-			}
-
-			// Write the value.
-			if (status == SUCCESS)
-			{
-			      uint8 *pCurValue = (uint8 *)pAttr->pValue;
-
-			      *pCurValue = pValue[0];
-
-				  if (pValue[0] != FALSE && pValue[0] != TRUE)
-					  status = ATT_ERR_INVALID_VALUE;
-				  else
-				  {
-					  if(uuid == ACCEL_DATA_INIT_UUID)
-						  accel_AppCBs->pfnAccelEnabler(ACCEL_SENSOR_DATA_INIT, *pCurValue);
-					  else
-						  status = ATT_ERR_ATTR_NOT_FOUND;
-				  }
-			}
-
-			break;
-
-		  case GATT_CLIENT_CHAR_CFG_UUID:
-		  {
-			  //set 2 byte pValue forcely, if not return length error status
-			  uint16_t val=(uint16_t)pValue[0];
-			  uint16_t length = sizeof(uint16_t);
-			//status = GATTServApp_ProcessCCCWriteReq(connHandle, pAttr, pValue, len,
-			  status = GATTServApp_ProcessCCCWriteReq(connHandle, pAttr, (uint8_t *)&val, length,
-													 offset, GATT_CLIENT_CFG_NOTIFY);
-//			if (status == SUCCESS)
-//			{
-//			  uint8 charCfg = pValue[0];
-//
-//			  accel_AppCBs->pfnAccelEnabler(ACCEL_MEAS_ENABLE_NOTIFY, charCfg);
-//			}
-			  Display_print3(dispHandle, 2, 0, "accel_WriteAttrCB len=%d status=0x%x pVal=%d", length, status, val);
-		  }
-			break;
-
 		  default:
 			  // Should never get here!
 			  status = ATT_ERR_ATTR_NOT_FOUND;

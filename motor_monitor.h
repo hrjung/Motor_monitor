@@ -59,18 +59,13 @@ extern "C"
 /*********************************************************************
  * CONSTANTS
  */
-// merge ave, div and max, min to notify BLE in 2 times
-#define ACCELSENSOR_MERGE_CALC_RESULT	1
 
 // Profile Parameters
 // RW uint8 - Profile Attribute value
-#define ACCEL_AVE_DIV				  	1
-#define ACCEL_MAX_MIN				  	2
-#define ACCEL_AVERAGE					3
-#define ACCEL_DEVIATION					4
-#define ACCEL_MAX						5
-#define ACCEL_MIN						6
-#define ACCEL_DATA_INIT					7
+#define MONITOR_FREQ				1
+#define MONITOR_RPM				  	2
+#define MONITOR_VOLTAGE				3
+#define MONITOR_RUN_TIME			4
   
 // Profile UUIDs
 #define MONITOR_FREQ_UUID		0xFFE2
@@ -112,7 +107,7 @@ typedef void (*accelEnabler_t)(uint8_t cmd, uint8_t event);
 typedef struct
 {
   accelEnabler_t     pfnAccelEnabler;  // Called when Enabler attribute changes
-} accelCBs_t;
+} monitorCBs_t;
 
 /*********************************************************************
  * API FUNCTIONS 
@@ -125,7 +120,7 @@ typedef struct
  * @param   services - services to add. This is a bit map and can
  *                     contain more than one service.
  */
-extern bStatus_t Accel_AddService(uint32 services);
+extern bStatus_t monitor_AddService(uint32 services);
 
 /*
  * Accel_RegisterAppCBs - Registers the application callback function.
@@ -133,7 +128,7 @@ extern bStatus_t Accel_AddService(uint32 services);
  *
  *    appCallbacks - pointer to application callbacks.
  */
-extern bStatus_t Accel_RegisterAppCBs(accelCBs_t *appCallbacks);
+extern bStatus_t monitor_RegisterAppCBs(monitorCBs_t *appCallbacks);
 
 
 /*
@@ -146,7 +141,7 @@ extern bStatus_t Accel_RegisterAppCBs(accelCBs_t *appCallbacks);
  *          data type (example: data type of uint16 will be cast to 
  *          uint16 pointer).
  */
-extern bStatus_t Accel_SetParameter(uint16 param, uint8 len, void *value);
+extern bStatus_t monitor_SetParameter(uint16 param, uint8 len, void *value);
   
 /*
  * Accel_GetParameter - Get an Accelerometer Profile parameter.
@@ -157,7 +152,7 @@ extern bStatus_t Accel_SetParameter(uint16 param, uint8 len, void *value);
  *          data type (example: data type of uint16 will be cast to 
  *          uint16 pointer).
  */
-extern bStatus_t Accel_GetParameter(uint16 param, void *value);
+extern bStatus_t monitor_GetParameter(uint16 param, void *value);
 
 /*********************************************************************
  * @fn          Accel_MeasNotify
@@ -170,7 +165,7 @@ extern bStatus_t Accel_GetParameter(uint16 param, void *value);
  *
  * @return      Success or Failure
  */
-extern bStatus_t Accel_MeasNotify(uint16 connHandle, attHandleValueNoti_t *pNoti);
+//extern bStatus_t monitor_MeasNotify(uint16 connHandle, attHandleValueNoti_t *pNoti);
 
 //extern uint8 Accel_IsNotifyEnabled(void);
 //extern void Accel_enableNotifyCfg(void);

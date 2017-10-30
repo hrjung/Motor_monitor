@@ -155,7 +155,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="Drivers/SPI/SPI.c|Drivers/SPI/SPICC26XXDMA.c|Drivers/Display/DisplayDogm1286.c|Startup/ccfg_app_ble_rcosc.c|Application/rcosc_calibration.c|Middleware|PROFILES/oad.c|PROFILES/oad_target_external_flash.c|TOOLS/cc26xx_app_oad.cmd|Startup/ST|Board|cc26x0f128.cmd|PROFILES/simplekeys.h|PROFILES/simplekeys.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="PROFILES/simple_gatt_profile.c|Drivers/SPI/SPI.c|Drivers/SPI/SPICC26XXDMA.c|Drivers/Display/DisplayDogm1286.c|Startup/ccfg_app_ble_rcosc.c|Application/rcosc_calibration.c|Middleware|PROFILES/oad.c|PROFILES/oad_target_external_flash.c|TOOLS/cc26xx_app_oad.cmd|Startup/ST|Board|cc26x0f128.cmd|PROFILES/simplekeys.h|PROFILES/simplekeys.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
