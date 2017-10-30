@@ -1,0 +1,14 @@
+# ignore .d extension
+*.d
+*.obj
+*.opt
+*.graphProp
+Release/*.mk
+Debug/*.mk
+
+# ignore all files at /Debug directory
+Debug/
+Release/
+FlashROM/
+.launches/
+.settings/
