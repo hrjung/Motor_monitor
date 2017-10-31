@@ -66,12 +66,8 @@ extern Display_Handle dispHandle;
 /*********************************************************************
  * CONSTANTS
  */
-#define SERVAPP_NUM_ATTR_SUPPORTED        23
-
-#define ACCEL_DATA_AVERAGE_POS			5
-#define ACCEL_DATA_DEVIATION_POS		9
-#define ACCEL_DATA_MAXIMUM_POS			13
-#define ACCEL_DATA_MINIMUM_POS			17
+#define SERVAPP_NUM_ATTR_SUPPORTED        13
+//#define SERVAPP_NUM_ATTR_SUPPORTED        17
 
 /*********************************************************************
  * TYPEDEFS
@@ -143,9 +139,9 @@ static uint8 MntrRunTimeCharProps = GATT_PROP_READ;
 
 //static uint8 accelNofiCfg = 0; //disable
 // Characteristics value, 3 valuse for x, y, z
-static float MntrFreqValue = 0.0;
-static float MntrRpmValue = 0.0;
-static float MntrVoltageValue = 0.0;
+static uint32 MntrFreqValue = 0;
+static uint32 MntrRpmValue = 0;
+static uint32 MntrVoltageValue = 0;
 static uint32 MntrRunTimeValue = 0;
 
 // Characteristic Configs for notify
@@ -175,7 +171,7 @@ static gattAttribute_t mntrAttrTbl[SERVAPP_NUM_ATTR_SUPPORTED] =
   },
 
   	 //===============================================
-	// Sensor data init Characteristic Declaration
+	// motor frequency Characteristic Declaration
 	{
 		  { ATT_BT_UUID_SIZE, characterUUID }, //type 0x2803
 		  GATT_PERMIT_READ,						// permissions
@@ -183,22 +179,22 @@ static gattAttribute_t mntrAttrTbl[SERVAPP_NUM_ATTR_SUPPORTED] =
 		  &MntrFreqCharProps				// pValue
 	},
 
-	  // Sensor Min Characteristic Value
+	  // motor frequency Characteristic Value
 	  {
 		{ ATT_BT_UUID_SIZE, mntrFreqUUID },
 		GATT_PERMIT_READ,
 		0,
 		(uint8 *)&MntrFreqValue
 	  },
-
-      // sensor calc configuration
+#if 0
+      // motor frequency configuration
       {
         { ATT_BT_UUID_SIZE, clientCharCfgUUID },
         GATT_PERMIT_READ | GATT_PERMIT_WRITE,
         0,
         (uint8 *)&MntrFreqConfig
       },
-
+#endif
 	  // Sensor Min Characteristic User Description
 	  {
 		{ ATT_BT_UUID_SIZE, charUserDescUUID },
@@ -223,7 +219,7 @@ static gattAttribute_t mntrAttrTbl[SERVAPP_NUM_ATTR_SUPPORTED] =
 			0,
 			(uint8 *)&MntrRpmValue
 		  },
-
+#if 0
 	      // sensor calc configuration
 	      {
 	        { ATT_BT_UUID_SIZE, clientCharCfgUUID },
@@ -231,7 +227,7 @@ static gattAttribute_t mntrAttrTbl[SERVAPP_NUM_ATTR_SUPPORTED] =
 	        0,
 	        (uint8 *)&MntrRpmConfig
 	      },
-
+#endif
 		  // sensor calc Characteristic User Description
 		  {
 			{ ATT_BT_UUID_SIZE, charUserDescUUID },
@@ -255,7 +251,7 @@ static gattAttribute_t mntrAttrTbl[SERVAPP_NUM_ATTR_SUPPORTED] =
 				0,
 				(uint8 *)&MntrVoltageValue
 			  },
-
+#if 0
 		      // sensor calc configuration
 		      {
 		        { ATT_BT_UUID_SIZE, clientCharCfgUUID },
@@ -263,7 +259,7 @@ static gattAttribute_t mntrAttrTbl[SERVAPP_NUM_ATTR_SUPPORTED] =
 		        0,
 		        (uint8 *)&MntrVoltageConfig
 		      },
-
+#endif
 			  // sensor calc Characteristic User Description
 			  {
 				{ ATT_BT_UUID_SIZE, charUserDescUUID },
@@ -287,7 +283,7 @@ static gattAttribute_t mntrAttrTbl[SERVAPP_NUM_ATTR_SUPPORTED] =
 			0,
 			(uint8 *)&MntrRunTimeValue
 		  },
-
+#if 0
 		  // Run time configuration
 		  {
 			{ ATT_BT_UUID_SIZE, clientCharCfgUUID },
@@ -295,7 +291,7 @@ static gattAttribute_t mntrAttrTbl[SERVAPP_NUM_ATTR_SUPPORTED] =
 			0,
 			(uint8 *)&MntrRunTimeConfig
 		  },
-
+#endif
 		  // Run time Characteristic User Description
 		  {
 			{ ATT_BT_UUID_SIZE, charUserDescUUID },
@@ -475,7 +471,7 @@ bStatus_t monitor_SetParameter(uint16 param, uint8 len, void *value)
   switch (param)
   {
     case MONITOR_FREQ:
-      if (len == sizeof(float))
+      if (len == sizeof(uint32))
       {
     	  memcpy(&MntrFreqValue, value, len);
           // See if Notification has been enabled
@@ -489,7 +485,7 @@ bStatus_t monitor_SetParameter(uint16 param, uint8 len, void *value)
       break;
 
     case MONITOR_RPM:
-      if (len == sizeof(float))
+      if (len == sizeof(uint32))
       {
     	  memcpy(&MntrRpmValue, value, len);
           // See if Notification has been enabled
@@ -503,7 +499,7 @@ bStatus_t monitor_SetParameter(uint16 param, uint8 len, void *value)
       break;
 
     case MONITOR_VOLTAGE:
-      if (len == sizeof(float))
+      if (len == sizeof(uint32))
       {
     	  memcpy(&MntrVoltageValue, value, len);
           // See if Notification has been enabled
@@ -562,15 +558,15 @@ bStatus_t monitor_GetParameter(uint16 param, void *value)
 //		break;
 
     case MONITOR_FREQ:
-      memcpy(value, &MntrFreqValue, sizeof(float));
+      memcpy(value, &MntrFreqValue, sizeof(uint32));
       break;
 
     case MONITOR_RPM:
-      memcpy(value, &MntrRpmValue, sizeof(float));
+      memcpy(value, &MntrRpmValue, sizeof(uint32));
       break;
 
     case MONITOR_VOLTAGE:
-      memcpy(value, &MntrVoltageValue, sizeof(float));
+      memcpy(value, &MntrVoltageValue, sizeof(uint32));
       break;
 
     case MONITOR_RUN_TIME:
@@ -625,19 +621,19 @@ static bStatus_t monitor_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pAttr,
       // gattserverapp handles those types for reads
 
       case MONITOR_FREQ_UUID:
-        *pLen = sizeof(float);
+        *pLen = sizeof(uint32);
         memcpy(pValue, pAttr->pValue, *pLen);
         //Display_print4(dispHandle, 2, 0, "accel_ReadAttrCB len=%d val=%d %d %d", *pLen, pValue[0],pValue[1],pValue[2]);
         break;
 
       case MONITOR_RPM_UUID:
-        *pLen = sizeof(float);
+        *pLen = sizeof(uint32);
         memcpy(pValue, pAttr->pValue, *pLen);
         //Display_print4(dispHandle, 2, 0, "accel_ReadAttrCB len=%d val=%d %d %d", *pLen, pValue[0],pValue[1],pValue[2]);
         break;
 
       case MONITOR_VOLTAGE_UUID:
-        *pLen = sizeof(float);
+        *pLen = sizeof(uint32);
         memcpy(pValue, pAttr->pValue, *pLen);
         //Display_print4(dispHandle, 2, 0, "accel_ReadAttrCB len=%d val=%d %d %d", *pLen, pValue[0],pValue[1],pValue[2]);
         break;

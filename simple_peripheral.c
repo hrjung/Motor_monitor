@@ -503,17 +503,17 @@ static void SimpleBLEPeripheral_init(void)
 #ifndef FEATURE_OAD_ONCHIP
   // Setup the SimpleProfile Characteristic Values
   {
-    float charValue1 = 60.4;
-    float charValue2 = 1200.5;
-    float charValue3 = 20.0;
-    uint32 charValue4 = 65000;
+	uint32 charValue1 = 1;
+	uint32 charValue2 = 1024;
+	uint32 charValue3 = 128;
+    uint32 charValue4 = 256;
     //uint8_t charValue5[SIMPLEPROFILE_CHAR5_LEN] = { 1, 2, 3, 4, 5 };
 
-    monitor_SetParameter(MONITOR_FREQ, sizeof(float),
+    monitor_SetParameter(MONITOR_FREQ, sizeof(uint32),
                                &charValue1);
-    monitor_SetParameter(MONITOR_RPM, sizeof(float),
+    monitor_SetParameter(MONITOR_RPM, sizeof(uint32),
                                &charValue2);
-    monitor_SetParameter(MONITOR_VOLTAGE, sizeof(float),
+    monitor_SetParameter(MONITOR_VOLTAGE, sizeof(uint32),
                                &charValue3);
     monitor_SetParameter(MONITOR_RUN_TIME, sizeof(uint32),
                                &charValue4);
