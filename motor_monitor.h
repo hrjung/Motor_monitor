@@ -62,16 +62,16 @@ extern "C"
 
 // Profile Parameters
 // RW uint8 - Profile Attribute value
-#define MONITOR_FREQ				1
-#define MONITOR_RPM				  	2
-#define MONITOR_VOLTAGE				3
-#define MONITOR_RUN_TIME			4
+#define MONITOR_FREQ				0
+#define MONITOR_RPM				  	1
+#define MONITOR_BATTERY				2
+#define MONITOR_DISTANCE			3
   
 // Profile UUIDs
 #define MONITOR_FREQ_UUID		0xFFE2
 #define MONITOR_RPM_UUID		0xFFE3
-#define MONITOR_VOLTAGE_UUID	0xFFE4
-#define MONITOR_RUN_TIME_UUID  	0xFFE5
+#define MONITOR_BATTERY_UUID	0xFFE4
+#define MONITOR_DISTANCE_UUID  	0xFFE5
   
 // Monitor Service UUID
 #define MONITOR_SERVICE_UUID            0xFFE0
@@ -102,7 +102,7 @@ extern "C"
  */
 // Callback when the device has been started.  Callback event to 
 // the ask for a battery check.
-typedef void (*accelEnabler_t)(uint8_t cmd, uint8_t event);
+typedef void (*accelEnabler_t)(uint8_t event);
 
 typedef struct
 {

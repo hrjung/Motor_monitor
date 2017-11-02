@@ -97,12 +97,12 @@ CONST uint8 mntrRpmUUID[ATT_BT_UUID_SIZE] =
 
 CONST uint8 mntrVoltageUUID[ATT_BT_UUID_SIZE] =
 {
-  LO_UINT16(MONITOR_VOLTAGE_UUID), HI_UINT16(MONITOR_VOLTAGE_UUID)
+  LO_UINT16(MONITOR_BATTERY_UUID), HI_UINT16(MONITOR_BATTERY_UUID)
 };
 
 CONST uint8 mntrRunTimeUUID[ATT_BT_UUID_SIZE] =
 {
-  LO_UINT16(MONITOR_RUN_TIME_UUID), HI_UINT16(MONITOR_RUN_TIME_UUID)
+  LO_UINT16(MONITOR_DISTANCE_UUID), HI_UINT16(MONITOR_DISTANCE_UUID)
 };
 
 // Accelerometer noti UUID : 0xFFA5
@@ -134,28 +134,27 @@ static CONST gattAttrType_t MonitorService = { ATT_BT_UUID_SIZE, MonitorServUUID
 // Characteristic Properties
 static uint8 MntrFreqCharProps = GATT_PROP_READ;
 static uint8 MntrRpmCharProps = GATT_PROP_READ;
-static uint8 MntrVoltageCharProps = GATT_PROP_READ;
-static uint8 MntrRunTimeCharProps = GATT_PROP_READ;
+static uint8 MntrBatteryCharProps = GATT_PROP_READ;
+static uint8 MntrDistanceCharProps = GATT_PROP_READ;
 
 //static uint8 accelNofiCfg = 0; //disable
 // Characteristics value, 3 valuse for x, y, z
-static uint32 MntrFreqValue = 0;
-static uint32 MntrRpmValue = 0;
-static uint32 MntrVoltageValue = 0;
-static uint32 MntrRunTimeValue = 0;
+static float MntrFreqValue = 0;
+static uint16 MntrRpmValue = 0;
+static uint16 MntrBatteryValue = 0;
+static uint16 MntrDistanceValue = 0;
 
 // Characteristic Configs for notify
-static gattCharCfg_t *MntrFreqConfig;
-static gattCharCfg_t *MntrRpmConfig;
-static gattCharCfg_t *MntrVoltageConfig;
-static gattCharCfg_t *MntrRunTimeConfig;
-//static gattCharCfg_t *accelSensorNofiConfig;
+//static gattCharCfg_t *MntrFreqConfig;
+//static gattCharCfg_t *MntrRpmConfig;
+//static gattCharCfg_t *MntrBatteryConfig;
+//static gattCharCfg_t *MntrDistanceConfig;
 
 // Characteristic user descriptions
 static uint8 MntrFreqUserDesc[20] 			= "Motor Frequency    ";
 static uint8 MntrSpeedRpmCharUserDesc[20] 	= "Motor Speed        ";
-static uint8 MntrDcVoltageCharUserDesc[20] 	= "Motor DC voltage   ";
-static uint8 MntrRunTimeCharUserDesc[20] 	= "Motor Run Time     ";
+static uint8 MntrBatteryCharUserDesc[20] 	= "Motor Battery      ";
+static uint8 MntrDistanceCharUserDesc[20] 	= "Motor Distance     ";
 
 /*********************************************************************
  * Profile Attributes - Table
@@ -241,7 +240,7 @@ static gattAttribute_t mntrAttrTbl[SERVAPP_NUM_ATTR_SUPPORTED] =
 			  { ATT_BT_UUID_SIZE, characterUUID }, //type 0x2803
 			  GATT_PERMIT_READ,						// permissions
 			  0,									// handle
-			  &MntrVoltageCharProps			// pValue
+			  &MntrBatteryCharProps			// pValue
 			},
 
 			  // sensor calc Characteristic Value
@@ -249,7 +248,7 @@ static gattAttribute_t mntrAttrTbl[SERVAPP_NUM_ATTR_SUPPORTED] =
 				{ ATT_BT_UUID_SIZE, mntrVoltageUUID },
 				GATT_PERMIT_READ,
 				0,
-				(uint8 *)&MntrVoltageValue
+				(uint8 *)&MntrBatteryValue
 			  },
 #if 0
 		      // sensor calc configuration
@@ -257,7 +256,7 @@ static gattAttribute_t mntrAttrTbl[SERVAPP_NUM_ATTR_SUPPORTED] =
 		        { ATT_BT_UUID_SIZE, clientCharCfgUUID },
 		        GATT_PERMIT_READ | GATT_PERMIT_WRITE,
 		        0,
-		        (uint8 *)&MntrVoltageConfig
+		        (uint8 *)&MntrBatteryConfig
 		      },
 #endif
 			  // sensor calc Characteristic User Description
@@ -265,7 +264,7 @@ static gattAttribute_t mntrAttrTbl[SERVAPP_NUM_ATTR_SUPPORTED] =
 				{ ATT_BT_UUID_SIZE, charUserDescUUID },
 				GATT_PERMIT_READ,
 				0,
-				MntrDcVoltageCharUserDesc
+				MntrBatteryCharUserDesc
 			  },
 		  //===============================================
 			// Monitor Run time Characteristic Declaration
@@ -273,7 +272,7 @@ static gattAttribute_t mntrAttrTbl[SERVAPP_NUM_ATTR_SUPPORTED] =
 			  { ATT_BT_UUID_SIZE, characterUUID }, //type 0x2803
 			  GATT_PERMIT_READ,						// permissions
 			  0,									// handle
-			  &MntrRunTimeCharProps			// pValue
+			  &MntrDistanceCharProps			// pValue
 			},
 
 		  // Run time Characteristic Value
@@ -281,7 +280,7 @@ static gattAttribute_t mntrAttrTbl[SERVAPP_NUM_ATTR_SUPPORTED] =
 			{ ATT_BT_UUID_SIZE, mntrRunTimeUUID },
 			GATT_PERMIT_READ,
 			0,
-			(uint8 *)&MntrRunTimeValue
+			(uint8 *)&MntrDistanceValue
 		  },
 #if 0
 		  // Run time configuration
@@ -289,7 +288,7 @@ static gattAttribute_t mntrAttrTbl[SERVAPP_NUM_ATTR_SUPPORTED] =
 			{ ATT_BT_UUID_SIZE, clientCharCfgUUID },
 			GATT_PERMIT_READ | GATT_PERMIT_WRITE,
 			0,
-			(uint8 *)&MntrRunTimeConfig
+			(uint8 *)&MntrDistanceConfig
 		  },
 #endif
 		  // Run time Characteristic User Description
@@ -297,7 +296,7 @@ static gattAttribute_t mntrAttrTbl[SERVAPP_NUM_ATTR_SUPPORTED] =
 			{ ATT_BT_UUID_SIZE, charUserDescUUID },
 			GATT_PERMIT_READ,
 			0,
-			MntrRunTimeCharUserDesc
+			MntrDistanceCharUserDesc
 		  },
 
 //	    // Accel Notify config Characteristic Declaration
@@ -375,6 +374,7 @@ CONST gattServiceCBs_t  monitorCBs =
 bStatus_t monitor_AddService(uint32 services)
 {
   uint8 status = SUCCESS;
+#if 0 // no config required
   size_t allocSize = sizeof(gattCharCfg_t) * linkDBNumConns;
 
   // Allocate Client Characteristic Configuration tables
@@ -391,28 +391,29 @@ bStatus_t monitor_AddService(uint32 services)
     return (bleMemAllocError);
   }
 
-  MntrVoltageConfig = (gattCharCfg_t *)ICall_malloc(allocSize);
-  if (MntrVoltageConfig == NULL)
+  MntrBatteryConfig = (gattCharCfg_t *)ICall_malloc(allocSize);
+  if (MntrBatteryConfig == NULL)
   {
 	ICall_free(MntrFreqConfig);
 	ICall_free(MntrRpmConfig);
     return (bleMemAllocError);
   }
 
-  MntrRunTimeConfig = (gattCharCfg_t *)ICall_malloc(allocSize);
-  if (MntrRunTimeConfig == NULL)
+  MntrDistanceConfig = (gattCharCfg_t *)ICall_malloc(allocSize);
+  if (MntrDistanceConfig == NULL)
   {
 	ICall_free(MntrFreqConfig);
 	ICall_free(MntrRpmConfig);
-	ICall_free(MntrVoltageConfig);
+	ICall_free(MntrBatteryConfig);
     return (bleMemAllocError);
   }
 
   // Initialize Client Characteristic Configuration attributes
   GATTServApp_InitCharCfg(INVALID_CONNHANDLE, MntrFreqConfig);
   GATTServApp_InitCharCfg(INVALID_CONNHANDLE, MntrRpmConfig);
-  GATTServApp_InitCharCfg(INVALID_CONNHANDLE, MntrVoltageConfig);
-  GATTServApp_InitCharCfg(INVALID_CONNHANDLE, MntrRunTimeConfig);
+  GATTServApp_InitCharCfg(INVALID_CONNHANDLE, MntrBatteryConfig);
+  GATTServApp_InitCharCfg(INVALID_CONNHANDLE, MntrDistanceConfig);
+#endif
 
   if (services & MONITOR_SERVICE)
   {
@@ -471,13 +472,10 @@ bStatus_t monitor_SetParameter(uint16 param, uint8 len, void *value)
   switch (param)
   {
     case MONITOR_FREQ:
-      if (len == sizeof(uint32))
+      if (len == sizeof(float))
       {
     	  memcpy(&MntrFreqValue, value, len);
-          // See if Notification has been enabled
-          GATTServApp_ProcessCharCfg( MntrFreqConfig, (uint8 *)&MntrFreqValue, FALSE,
-	  	  	  	  	 	 	 	 	  mntrAttrTbl, GATT_NUM_ATTRS( mntrAttrTbl ),
-                                      INVALID_TASK_ID, monitor_ReadAttrCB );
+
       }
       else
         ret = bleInvalidRange;
@@ -485,41 +483,32 @@ bStatus_t monitor_SetParameter(uint16 param, uint8 len, void *value)
       break;
 
     case MONITOR_RPM:
-      if (len == sizeof(uint32))
+      if (len == sizeof(uint16))
       {
     	  memcpy(&MntrRpmValue, value, len);
-          // See if Notification has been enabled
-          GATTServApp_ProcessCharCfg( MntrRpmConfig, (uint8 *)&MntrRpmValue, FALSE,
-	  	  	  	  	  	  	  	  	  mntrAttrTbl, GATT_NUM_ATTRS( mntrAttrTbl ),
-                                      INVALID_TASK_ID, monitor_ReadAttrCB );
+
       }
       else
         ret = bleInvalidRange;
 
       break;
 
-    case MONITOR_VOLTAGE:
-      if (len == sizeof(uint32))
+    case MONITOR_BATTERY:
+      if (len == sizeof(uint16))
       {
-    	  memcpy(&MntrVoltageValue, value, len);
-          // See if Notification has been enabled
-          GATTServApp_ProcessCharCfg( MntrVoltageConfig, (uint8 *)&MntrVoltageValue, FALSE,
-	  	  	  	  	  	  	  	  	  mntrAttrTbl, GATT_NUM_ATTRS( mntrAttrTbl ),
-                                      INVALID_TASK_ID, monitor_ReadAttrCB );
+    	  memcpy(&MntrBatteryValue, value, len);
+
       }
       else
         ret = bleInvalidRange;
 
       break;
 
-    case MONITOR_RUN_TIME:
-      if (len == sizeof(uint32))
+    case MONITOR_DISTANCE:
+      if (len == sizeof(uint16))
       {
-    	  memcpy(&MntrRunTimeValue, value, len);
-          // See if Notification has been enabled
-          GATTServApp_ProcessCharCfg( MntrRunTimeConfig, (uint8 *)&MntrRunTimeValue, FALSE,
-        		  	  	  	  	  	  mntrAttrTbl, GATT_NUM_ATTRS( mntrAttrTbl ),
-                                      INVALID_TASK_ID, monitor_ReadAttrCB );
+    	  memcpy(&MntrDistanceValue, value, len);
+
       }
       else
         ret = bleInvalidRange;
@@ -558,19 +547,19 @@ bStatus_t monitor_GetParameter(uint16 param, void *value)
 //		break;
 
     case MONITOR_FREQ:
-      memcpy(value, &MntrFreqValue, sizeof(uint32));
+      memcpy(value, &MntrFreqValue, sizeof(float));
       break;
 
     case MONITOR_RPM:
-      memcpy(value, &MntrRpmValue, sizeof(uint32));
+      memcpy(value, &MntrRpmValue, sizeof(uint16));
       break;
 
-    case MONITOR_VOLTAGE:
-      memcpy(value, &MntrVoltageValue, sizeof(uint32));
+    case MONITOR_BATTERY:
+      memcpy(value, &MntrBatteryValue, sizeof(uint16));
       break;
 
-    case MONITOR_RUN_TIME:
-      memcpy(value, &MntrRunTimeValue, sizeof(uint32));
+    case MONITOR_DISTANCE:
+      memcpy(value, &MntrDistanceValue, sizeof(uint16));
       break;
 
     default:
@@ -621,25 +610,25 @@ static bStatus_t monitor_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pAttr,
       // gattserverapp handles those types for reads
 
       case MONITOR_FREQ_UUID:
-        *pLen = sizeof(uint32);
+        *pLen = sizeof(float);
         memcpy(pValue, pAttr->pValue, *pLen);
         //Display_print4(dispHandle, 2, 0, "accel_ReadAttrCB len=%d val=%d %d %d", *pLen, pValue[0],pValue[1],pValue[2]);
         break;
 
       case MONITOR_RPM_UUID:
-        *pLen = sizeof(uint32);
+        *pLen = sizeof(uint16);
         memcpy(pValue, pAttr->pValue, *pLen);
         //Display_print4(dispHandle, 2, 0, "accel_ReadAttrCB len=%d val=%d %d %d", *pLen, pValue[0],pValue[1],pValue[2]);
         break;
 
-      case MONITOR_VOLTAGE_UUID:
-        *pLen = sizeof(uint32);
+      case MONITOR_BATTERY_UUID:
+        *pLen = sizeof(uint16);
         memcpy(pValue, pAttr->pValue, *pLen);
         //Display_print4(dispHandle, 2, 0, "accel_ReadAttrCB len=%d val=%d %d %d", *pLen, pValue[0],pValue[1],pValue[2]);
         break;
 
-      case MONITOR_RUN_TIME_UUID:
-        *pLen = sizeof(uint32);
+      case MONITOR_DISTANCE_UUID:
+        *pLen = sizeof(uint16);
         memcpy(pValue, pAttr->pValue, *pLen);
         //Display_print4(dispHandle, 2, 0, "accel_ReadAttrCB len=%d val=%d %d %d", *pLen, pValue[0],pValue[1],pValue[2]);
         break;

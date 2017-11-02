@@ -281,7 +281,8 @@ static uint8_t rspTxRetry = 0;
 PIN_State  gpioPinsState;
 PIN_Handle hGpioPins;
 
-float dispItem[4] = {601.0, 10.5};
+#define MAX_DISP_ITEM_COUNT	4
+float dispItem[MAX_DISP_ITEM_COUNT] = {30.0, 300.0, 95.0, 1000.0};
 int 	menu_state=0; // 0: RPM, 1: Voltage
 uint8_t dispScreen[4] = {FND_CHAR_0, FND_CHAR_0, FND_CHAR_0, FND_CHAR_0};
 
@@ -503,19 +504,19 @@ static void SimpleBLEPeripheral_init(void)
 #ifndef FEATURE_OAD_ONCHIP
   // Setup the SimpleProfile Characteristic Values
   {
-	uint32 charValue1 = 1;
-	uint32 charValue2 = 1024;
-	uint32 charValue3 = 128;
-    uint32 charValue4 = 256;
+	float charValue1 = 30.0;
+	uint16 charValue2 = 300;
+	uint16 charValue3 = 95;
+    uint16 charValue4 = 1000;
     //uint8_t charValue5[SIMPLEPROFILE_CHAR5_LEN] = { 1, 2, 3, 4, 5 };
 
-    monitor_SetParameter(MONITOR_FREQ, sizeof(uint32),
+    monitor_SetParameter(MONITOR_FREQ, sizeof(float),
                                &charValue1);
-    monitor_SetParameter(MONITOR_RPM, sizeof(uint32),
+    monitor_SetParameter(MONITOR_RPM, sizeof(uint16),
                                &charValue2);
-    monitor_SetParameter(MONITOR_VOLTAGE, sizeof(uint32),
+    monitor_SetParameter(MONITOR_BATTERY, sizeof(uint16),
                                &charValue3);
-    monitor_SetParameter(MONITOR_RUN_TIME, sizeof(uint32),
+    monitor_SetParameter(MONITOR_DISTANCE, sizeof(uint16),
                                &charValue4);
   }
 
@@ -1056,6 +1057,10 @@ static void SimpleBLE_updateProfileCB(uint8_t paramID)
 }
 #endif //!FEATURE_OAD_ONCHIP
 
+void monitor_setValue(int type, float value)
+{
+	dispItem[type] = value;
+}
 /*********************************************************************
  * @fn      SimpleBLEPeripheral_processCharValueChangeEvt
  *
@@ -1070,31 +1075,32 @@ static void SimpleBLEPeripheral_processCharValueChangeEvt(uint8_t paramID)
 {
 #ifndef FEATURE_OAD_ONCHIP
   float newValue;
+  uint16 i_newValue;
 
   switch(paramID)
   {
     case MONITOR_FREQ:
-    	monitor_GetParameter(MONITOR_FREQ, &newValue);
-
+    	monitor_GetParameter(MONITOR_FREQ, (float *)&newValue);
+    	monitor_setValue(MONITOR_FREQ, newValue);
       Display_print1(dispHandle, 4, 0, "Freq: %d", (int)newValue);
       break;
 
     case MONITOR_RPM:
-    	monitor_GetParameter(MONITOR_RPM, &newValue);
-
-      Display_print1(dispHandle, 4, 0, "RPM: %d", (int)newValue);
+    	monitor_GetParameter(MONITOR_RPM, (uint16 *)&i_newValue);
+    	monitor_setValue(MONITOR_RPM, (float)i_newValue);
+      Display_print1(dispHandle, 4, 0, "RPM: %d", (int)i_newValue);
       break;
 
-    case MONITOR_VOLTAGE:
-    	monitor_GetParameter(MONITOR_VOLTAGE, &newValue);
-
-      Display_print1(dispHandle, 4, 0, "DC Voltage: %d", (int)newValue);
+    case MONITOR_BATTERY:
+    	monitor_GetParameter(MONITOR_BATTERY, (uint16 *)&i_newValue);
+    	monitor_setValue(MONITOR_BATTERY, (float)i_newValue);
+      Display_print1(dispHandle, 4, 0, "Battery: %d", (int)i_newValue);
       break;
 
-    case MONITOR_RUN_TIME:
-    	monitor_GetParameter(MONITOR_RUN_TIME, &newValue);
-
-      Display_print1(dispHandle, 4, 0, "Run time: %d", (int)newValue);
+    case MONITOR_DISTANCE:
+    	monitor_GetParameter(MONITOR_DISTANCE, (uint16 *)&i_newValue);
+    	monitor_setValue(MONITOR_DISTANCE, (float)i_newValue);
+      Display_print1(dispHandle, 4, 0, "Distance: %d", (int)i_newValue);
       break;
 
     default:
@@ -1194,12 +1200,14 @@ static void SimpleBLEPeripheral_performPeriodicTask(void)
 	  if(code_cnt > 99) code_cnt=0;
 #else
 	  menu_state++;
-	  if(menu_state%2 == 1) menu_state = 1;
-	  else	menu_state = 0;
+	  menu_state %= MAX_DISP_ITEM_COUNT;
+
 	  switch(menu_state)
 	  {
-	  case 0 : FND_getDecimalCode((uint16_t)dispItem[menu_state],dispScreen); break;
-	  case 1 : FND_getFloatCode(dispItem[menu_state], dispScreen); break;
+	  case MONITOR_FREQ : FND_getFloatCode(dispItem[menu_state], dispScreen); break;
+	  case MONITOR_RPM :
+	  case MONITOR_BATTERY :
+	  case MONITOR_DISTANCE : FND_getDecimalCode((uint16_t)dispItem[menu_state],dispScreen); break;
 	  default : break;
 	  }
 #endif
